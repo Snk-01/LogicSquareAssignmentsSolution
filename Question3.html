@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Joy's Café Search UI</title>
+    <link rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+        
+        #searchBox {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        #cafeTable {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        #cafeTable th, #cafeTable td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container">
+        <input type="text" id="searchBox" placeholder="Search for cafes...">
+        <table id="cafeTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Locality</th>
+                    <th>Street No</th>
+                    <th>Postal Code</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchBox = document.getElementById('searchBox');
+            const cafeTable = document.getElementById('cafeTable');
+        
+            const cafesPromise = getCafes();
+            const placesPromise = getPlaces();
+            
+            Promise.all([cafesPromise, placesPromise]).then(([cafes, places]) => {
+                const placesMap = new Map(places.map(place => [place.id, place]));
+                
+                const cafeList = cafes.map(cafe => {
+                    const place = placesMap.get(cafe.location_id);
+                    return {
+                        name: cafe.name,
+                        locality: place ? place.locality : '',
+                        street_no: place ? place.street_no : '',
+                        postal_code: place ? place.postal_code : '',
+                        lat: place ? place.lat : '',
+                        long: place ? place.long : ''
+                    };
+                });
+                
+                displayCafeList(cafeList);
+                
+                searchBox.addEventListener('input', function () {
+                    const searchTerm = searchBox.value.trim().toLowerCase();
+                    const filteredCafes = filterCafes(cafeList, searchTerm);
+                    displayCafeList(filteredCafes);
+                });
+            }).catch(error => {
+                console.error('Error fetching data:', error);
+            });
+        });
+        
+        function verifyDataAvailability(cafes, places) {
+            cafes.forEach(cafe => {
+                const place = places.find(place => place.id === cafe.location_id);
+                if (!place) {
+                    console.error(`No matching place found for cafe '${cafe.name}' (location_id: ${cafe.location_id}).`);
+                }
+            });
+        }
+        
+        function generateCafeList(cafes, places) {
+            return cafes.map(cafe => {
+                const place = places.find(place => place.id === cafe.location_id);
+                return {
+                    name: cafe.name,
+                    locality: place ? place.locality : '',
+                    street_no: place ? place.street_no : '',
+                    postal_code: place ? place.postal_code : '',
+                    lat: place ? place.lat : '',
+                    long: place ? place.long : ''
+                };
+            });
+        }
+        
+        function filterCafes(cafes, searchTerm) {
+            if (!searchTerm) {
+                return cafes; 
+            }
+            
+            return cafes.filter(cafe =>
+            cafe.name.toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        function displayCafeList(cafes) {
+            const tableBody = document.createElement('tbody');
+            
+            cafes.forEach(cafe => {
+                const row = tableBody.insertRow();
+                row.insertCell(0).textContent = cafe.name;
+                row.insertCell(1).textContent = cafe.locality;
+                row.insertCell(2).textContent = cafe.street_no;
+                row.insertCell(3).textContent = cafe.postal_code;
+                row.insertCell(4).textContent = cafe.lat;
+                row.insertCell(5).textContent = cafe.long;
+            });
+            
+
+            clearTable();
+            cafeTable.appendChild(tableBody);
+        }
+        
+        function clearTable() {
+            const tableBody = cafeTable.querySelector('tbody');
+            if (tableBody) {
+                tableBody.parentNode.removeChild(tableBody);
+            }
+        }
+        
+        function getCafes() {
+            return fetch('https://raw.githubusercontent.com/debojyoti/places-fake-rest-api/master/cafes.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch cafes: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error === false && Array.isArray(data.cafes)) {
+                    return data.cafes;
+                } else {
+                    console.error('Invalid response format for cafes:', data);
+                    throw new Error('Invalid response format for cafes');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching cafes:', error);
+                throw error;
+            });
+        }
+        
+        function getPlaces() {
+            return fetch('https://raw.githubusercontent.com/debojyoti/places-fake-rest-api/master/places.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch places: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (Array.isArray(data.places)) {
+                    return data.places;
+                } else {
+                    console.error('Invalid response format for places:', data);
+                    throw new Error('Invalid response format for places');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching places:', error);
+                throw error;
+            });
+        }
+        
+    </script>
+</body>
+</html>
